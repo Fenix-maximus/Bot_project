@@ -1,0 +1,147 @@
+# Бот “Організатор подій”
+from datetime import datetime, timedelta # імпортуємо деякі елементи з бібліотеки datetime
+
+def greeting():  # Функція виводить привітання при запуску бота
+    print("Привіт, я тут щоб допомогти вам з організацією ваших заходів. \nЩо будемо робити цього разу?")
+
+def hand_of_help():  # Виводить список доступних команд
+    print("Добре, ось список команд, які ви можете використовувати:")
+    print("Допомога - виводить список усіх доступних команд та їх опис \n"
+          "Додати подію - додає нову подію до сховища пам'яті \n"
+          "Показати події — показує повний список усіх збережених подій з датами та категоріями \n"
+          "Події на тиждень — виводить події, заплановані на поточний тиждень \n"
+          "Пошук за категорією — дозволяє знайти події за вказаною категорією \n"
+          "Видалити подію — видаляє подію зі сховища за вказаною назвою та датою \n"
+          "Вийти — завершує роботу чатбота")
+
+events = {}  # Головний словник для зберігання подій
+def load_events():  # Завантажує події з файлу у словник для зручності
+    try:
+        with open("events.txt", "r", encoding="utf-8") as file:
+            for line in file:
+                parts = line.strip().split(" | ")
+                if len(parts) == 4: # перевірка
+                    name, date, category, description = parts
+                    events[name] = [date, category, description]
+    except FileNotFoundError:
+        pass
+
+def save_event_to_file(name, date, category, description):  # Додає подію до файлу і зберігає її у файлі
+    with open("events.txt", "a", encoding="utf-8") as file:
+        file.write(f"{name} | {date} | {category} | {description}\n")
+
+def find_events():  # Перевірка чи є події у словнику
+    if not events:
+        print("Список подій порожній.")
+        return True
+    else:
+        return False
+
+def new_event(): # Створення нової події
+    name_event = input("Чудово! Введіть назву нової події: ")
+    while True:   # Перевірка формату дати
+        date = input("Введіть дату цієї події у форматі хххх-хх-хх: ")
+        try:
+            datetime.strptime(date, "%Y-%m-%d")
+            break
+        except ValueError:
+            print("Неправильний формат дати! Спробуйте ще раз")
+    category = input("Яку категорію має ця подія: ")
+    description = input("Додайте опис події: ")
+    events[name_event] = [date, category, description] # збереження у словнику
+    save_event_to_file(name_event, date, category, description) # збереження у файл
+    print("Подія була додана")
+
+def show_events():   # Виводить список усіх подій
+    find_events()
+    for name_of_event, key in events.items():
+        print(f"Назва: {name_of_event} - Дата: {key[0]} - Категорія: {key[1]} - Опис: {key[2]}")
+
+def events_this_week():    # Виводить події, які відбуваються на поточному тижні
+    today = datetime.today()
+    start_of_week = today - timedelta(days=today.weekday())  # це понеділок
+    end_of_week = start_of_week + timedelta(days=6)  # це неділя
+
+    found = False
+    print("Події цього тижня:")
+    for name, values in events.items():
+        try: # додаткова перевірка
+            event_date = datetime.strptime(values[0], "%Y-%m-%d")
+            if start_of_week.date() <= event_date.date() <= end_of_week.date():
+                print(f"{name}:\n"
+                      f"  Дата: {values[0]}\n"
+                      f"  Категорія: {values[1]}\n"
+                      f"  Опис: {values[2]}\n")
+                found = True
+        except ValueError:
+            print(f"Неправильний формат дати у події '{name}': {values[0]}")
+    if not found:
+        print("На цьому тижні подій немає.")
+
+def search_category():  # Пошук подій за категорією
+    if find_events():
+        return
+    category = input("За якою категорією ви хочете знайти події: ")
+    while True:
+        found = False
+        for name, values in events.items():
+            if values[1].lower() == category.lower():
+                print(f"{name}:\n"
+                      f"  Дата: {values[0]}\n"
+                      f"  Категорія: {values[1]}\n"
+                      f"  Опис: {values[2]}\n")
+                print("Пошук завершений.")
+                found = True
+        if not found:   # Якщо користувач увів категорію що не існує, чатбот пропонує написати іншу
+            check = input("Подій з такою категорією не знайдено.\n"   
+                          "Напишіть іншу категорію або 'вийти з фільтру' для завершення: --> ")
+            if check.lower() == "вийти з фільтру": # можливість завершити роботу з фільтром
+                print("Ви вийшли з фільтру.")
+                break
+            else:
+                category = check
+        else:
+            break
+
+def delete_event():  # Видаляє подію за назвою та датою
+    if find_events():
+        return
+    name = input("Введіть назву події, яку хочете прибрати: ")
+    date = input("Введіть дату цієї події: ")
+    if name in events and date in events[name]:
+        del events[name]
+
+        with open("events.txt", "w", encoding="utf-8") as file:   # Перезаписуємо файл з оновленим вмістом
+            for event_name, values in events.items():
+                file.write(f"{event_name} | {values[0]} | {values[1]} | {values[2]}\n")
+
+        print("Подію успішно прибрано з пам'яті.")
+    else:
+        print("Подія з такою назвою і датою не знайдена.")
+
+def exit_bot():  # Вихід з бота
+    print("Добре попрацювали. Гарного дня.")
+
+def start():  # Основна функція запуску програми
+    load_events() # Завантажує інформацію з файлу у словник
+    greeting()
+    while True:
+        command = input("--> ")  # Командний рядок через який працює користувач
+        if command.lower() == "допомога":
+            hand_of_help()
+        elif command.lower() == "додати подію":
+            new_event()
+        elif command.lower() == "показати події":
+            show_events()
+        elif command.lower() == "події на тиждень":
+            events_this_week()
+        elif command.lower() == "пошук за категорією":
+            search_category()
+        elif command.lower() == "видалити подію":
+            delete_event()
+        elif command.lower() == "вийти":
+            exit_bot()
+            break
+        else:
+            print("Такої команди не існує. Прошу написати щось інше.")
+start() # Запуск програми
